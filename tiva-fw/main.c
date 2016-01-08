@@ -35,12 +35,13 @@
 #define CRATES_X		8
 #define CRATES_Y		4
 #define BUS_COUNT		4
+#define BITS_PER_PIXEL 4
 #define BYTES_PER_PIXEL	3
 #define CRATES_PER_BUS	8
 #define BUS_ROWS		(CRATES_Y*CRATE_HEIGHT)
 #define CRATE_COUNT		(CRATES_X*CRATES_Y)
 #define CRATE_SIZE		(CRATE_WIDTH*CRATE_HEIGHT)
-#define BUS_SIZE		(CRATES_PER_BUS*CRATE_SIZE*BYTES_PER_PIXEL)
+#define BUS_SIZE		(CRATES_PER_BUS*CRATE_SIZE*BYTES_PER_PIXEL*BITS_PER_PIXEL)
 unsigned const char const BOTTLE_MAP[CRATE_SIZE] = {
 	  4,  3,  2, 1, 0, 
 	  5,  6,  7, 8,19, 
@@ -153,12 +154,38 @@ unsigned long framebuffer_read(void *data, unsigned long len) {
 				unsigned int bottle	= BOTTLE_MAP[x + y*CRATE_WIDTH];
 //				if(idx == 0x07)
 //					bottle = FUCKED_UP_BOTTLE_MAP[x + y*CRATE_WIDTH];
-				unsigned int dst	= bus*BUS_SIZE + (crate*CRATE_SIZE + bottle)*3;
-				unsigned int src	= (y*CRATE_WIDTH + x)*3;
+				unsigned int dst	= bus*BUS_SIZE + (crate*CRATE_SIZE + bottle)*BYTES_PER_PIXEL*BITS_PER_PIXEL;
+				unsigned int src	= (y*CRATE_WIDTH + x)*BYTES_PER_PIXEL;
 				// Copy r, g and b data
-				framebuffer_input[dst]	   = fb->rgb_data[src];
-				framebuffer_input[dst + 1] = fb->rgb_data[src + 1];
-				framebuffer_input[dst + 2] = fb->rgb_data[src + 2];
+#define MASK1 0xE
+#define MASK0 0x8
+				unsigned char red = fb->rgb_data[src];
+				unsigned char green = fb->rgb_data[src+1];
+				unsigned char blue = fb->rgb_data[src+2];
+				framebuffer_input[dst]	   = ((red&0x80)?MASK1<<4:MASK0<<4  )
+							   | ((red&0x40)?MASK1:MASK0        );
+				framebuffer_input[dst + 1] = ((red&0x20)?MASK1<<4:MASK0<<4  )
+							   | ((red&0x10)?MASK1:MASK0        );
+				framebuffer_input[dst + 2] = ((red&0x8)?MASK1<<4:MASK0<<4   )
+							   | ((red&0x4)?MASK1:MASK0         );
+				framebuffer_input[dst + 3] = ((red&0x2)?MASK1<<4:MASK0<<4   )
+							   | ((red&0x1)?MASK1:MASK0         );
+				framebuffer_input[dst + 4] = ((green&0x80)?MASK1<<4:MASK0<<4) 
+							   | ((green&0x40)?MASK1:MASK0      );
+				framebuffer_input[dst + 5] = ((green&0x20)?MASK1<<4:MASK0<<4) 
+							   | ((green&0x10)?MASK1:MASK0      );
+				framebuffer_input[dst + 6] = ((green&0x8)?MASK1<<4:MASK0<<4 )
+							   | ((green&0x4)?MASK1:MASK0       );
+				framebuffer_input[dst + 7] = ((green&0x2)?MASK1<<4:MASK0<<4 )
+							   | ((green&0x1)?MASK1:MASK0       );
+				framebuffer_input[dst + 8] = ((blue&0x80)?MASK1<<4:MASK0<<4 )
+							   | ((blue&0x40)?MASK1:MASK0       );
+				framebuffer_input[dst + 9] = ((blue&0x20)?MASK1<<4:MASK0<<4 )
+							   | ((blue&0x10)?MASK1:MASK0       );
+				framebuffer_input[dst +10] = ((blue&0x8)?MASK1<<4:MASK0<<4  )
+							   | ((blue&0x4)?MASK1:MASK0        );
+				framebuffer_input[dst +11] = ((blue&0x2)?MASK1<<4:MASK0<<4  )
+							   | ((blue&0x1)?MASK1:MASK0        );
 			}
 		}
 	}
@@ -169,10 +196,10 @@ length_error:
 }
 
 void kickoff_transfers() {
-    while(MAP_uDMAChannelIsEnabled(11)
-		|| MAP_uDMAChannelIsEnabled(25)
-		|| MAP_uDMAChannelIsEnabled(13)
-		|| MAP_uDMAChannelIsEnabled(15)){
+	while(MAP_uDMAChannelIsEnabled(11)
+			|| MAP_uDMAChannelIsEnabled(25)
+			|| MAP_uDMAChannelIsEnabled(13)
+			|| MAP_uDMAChannelIsEnabled(15)){
 		UARTprintf("A DMA tranfer is still running\n");
 		/* Idle for some time to give the µDMA controller a chance to complete its job */
 		SysCtlDelay(5000);
@@ -304,10 +331,10 @@ int main(void) {
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI2);
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI3);
 
-	MAP_SSIConfigSetExpClk(SSI0_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 2000000, 8);
-	MAP_SSIConfigSetExpClk(SSI1_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 2000000, 8);
-	MAP_SSIConfigSetExpClk(SSI2_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 2000000, 8);
-	MAP_SSIConfigSetExpClk(SSI3_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 2000000, 8);
+	MAP_SSIConfigSetExpClk(SSI0_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 3200000, 8);
+	MAP_SSIConfigSetExpClk(SSI1_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 3200000, 8);
+	MAP_SSIConfigSetExpClk(SSI2_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 3200000, 8);
+	MAP_SSIConfigSetExpClk(SSI3_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 3200000, 8);
 
 	/* Configure the µDMA controller for use by the SPI interface */
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_UDMA);
