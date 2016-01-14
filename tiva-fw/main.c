@@ -127,6 +127,9 @@ typedef struct {
 	unsigned char rgb_data[CRATE_SIZE*BYTES_PER_PIXEL];
 } FramebufferData;
 
+FramebufferData accu;
+unsigned long fill;
+bool toggle = 1;
 unsigned long framebuffer_read(void *data, unsigned long len) {
 	if(len < 1)
 		goto length_error;
@@ -136,11 +139,14 @@ unsigned long framebuffer_read(void *data, unsigned long len) {
 		if(len != 1)
 			goto length_error;
 		DEBUG_PRINT("Starting DMA.\n");
+		fill = 0; toggle = 1;
 		kickoff_transfers();
 	}else{
 		if(len != sizeof(FramebufferData))
+			UARTprintf("got %d, expected %d\n",len, sizeof(FramebufferData));
 			goto length_error;
 
+complete_framebuffer:
 		if(fb->crate_x > CRATES_X || fb->crate_y > CRATES_Y){
 			UARTprintf("Invalid frame index\n");
 			return len;
@@ -191,6 +197,28 @@ unsigned long framebuffer_read(void *data, unsigned long len) {
 	}
 	return len;
 length_error:
+	if(len > 1 && len < sizeof(FramebufferData)) {
+		//UARTprintf("attempting to fix frame\n");
+		fb = (FramebufferData *)data;
+		if(toggle && fb->command == 0x00) {
+			//UARTprintf("part 1\n");
+			memcpy(&accu, data, len);
+			fill = len;
+			toggle = !toggle;
+			return len;
+		} else {
+			//UARTprintf("potential part 2 fill: %d, len: %d, buffer: %d\n",fill, len, sizeof(FramebufferData));
+			if(fill + len == sizeof(FramebufferData)) {
+				//UARTprintf("part 2\n");
+				memcpy(((char*)&accu) + fill, data, len);
+				len += fill;
+				fb = &accu;
+				toggle = !toggle;
+				goto complete_framebuffer;
+			}
+		}
+	}
+	fill = 0; toggle = 1;
 	UARTprintf("Invalid packet length\n");
 	return len;
 }
