@@ -11,10 +11,10 @@
 #             └───┴───┴  ⋯  ┴───┴───┘
 
 # Physical display dimensions
-crate_width = 5
+crate_width = 6
 crate_height = 4
-crates_x = 8
-crates_y = 4
+crates_x = 3
+crates_y = 2
 
 # Computed values
 display_width = crates_x * crate_width

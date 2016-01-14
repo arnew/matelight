@@ -30,23 +30,33 @@
 #include "usb_bulk_structs.h"
 #include <string.h>
 
-#define CRATE_WIDTH		5
-#define CRATE_HEIGHT	4
-#define CRATES_X		8
-#define CRATES_Y		4
-#define BUS_COUNT		4
+#define CRATE_WIDTH		6
+#define CRATE_HEIGHT		4
+#define CRATES_X		3
+#define CRATES_Y		2
+#define BUS_COUNT		3
 #define BITS_PER_PIXEL 4
 #define BYTES_PER_PIXEL	3
-#define CRATES_PER_BUS	8
+#define CRATES_PER_BUS	2
 #define BUS_ROWS		(CRATES_Y*CRATE_HEIGHT)
 #define CRATE_COUNT		(CRATES_X*CRATES_Y)
 #define CRATE_SIZE		(CRATE_WIDTH*CRATE_HEIGHT)
-#define BUS_SIZE		(CRATES_PER_BUS*CRATE_SIZE*BYTES_PER_PIXEL*BITS_PER_PIXEL)
+#define BUS_SIZE		(CRATES_PER_BUS*(CRATE_SIZE+1)*BYTES_PER_PIXEL*BITS_PER_PIXEL)
 unsigned const char const BOTTLE_MAP[CRATE_SIZE] = {
-	  4,  3,  2, 1, 0, 
-	  5,  6,  7, 8,19, 
-	 12, 11, 10, 9,18, 
-	 13, 14, 15,16,17 
+//	18,17,16,15,
+//	19,6,7,14,
+//	20,5,8,13,
+//	21,4,9,12,
+//	22,3,10,11,
+//	23,2,1,0,
+	//3,4,11,12,19,20,
+	//2,5,10,13,18,21,
+	//1,6,9, 14,17,22,
+	//0,7,8, 15,16,23,
+	18,19,20,21,22,23,
+	17,16,15,14,13,12,
+	 6, 7, 8, 9,10,11,
+	 5, 4, 3, 2, 1, 0
 };
 
 unsigned const char const FUCKED_UP_BOTTLE_MAP[CRATE_SIZE] = {
@@ -57,10 +67,10 @@ unsigned const char const FUCKED_UP_BOTTLE_MAP[CRATE_SIZE] = {
 };
 
 unsigned const char const CRATE_MAP[CRATE_COUNT] = {
-	0x36, 0x34, 0x32, 0x30, 0x11, 0x13, 0x15, 0x17,
-	0x37, 0x35, 0x33, 0x31, 0x10, 0x12, 0x14, 0x16,
-	0x27, 0x25, 0x23, 0x21, 0x01, 0x03, 0x05, 0x07,
-	0x26, 0x24, 0x22, 0x20, 0x00, 0x02, 0x04, 0x06
+	0x01,0x11,0x21,
+	0x00,0x10,0x20,
+	//0x21,0x11,0x01,
+	//0x20,0x10,0x00,
 };
 
 #define SYSTICKS_PER_SECOND		100

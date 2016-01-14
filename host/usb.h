@@ -2,17 +2,7 @@
 #define __USB_H__
 
 #include <libusb-1.0/libusb.h>
-
-#define MATELIGHT_VID					0x1cbe
-#define MATELIGHT_PID					0x0003
-
-#define CRATE_WIDTH						5
-#define CRATE_HEIGHT					4
-
-#define MATELIGHT_FRAMEDATA_ENDPOINT	0x01
-#define MATELIGHT_TIMEOUT				1000
-
-#define GAMMA							2.5F
+#include "config.h"
 
 typedef struct {
 	libusb_device_handle *handle;
