@@ -73,6 +73,15 @@ unsigned const char const CRATE_MAP[CRATE_COUNT] = {
 	//0x20,0x10,0x00,
 };
 
+typedef struct {
+	unsigned char red, green, blue;
+} color_t;
+
+const color_t white = {0xff,0xff,0xff};
+const color_t black= {0x00,0x00,0x00};
+const color_t red= {0xff,0x00,0x00};
+const color_t green = {0x00,0xff,0x00};
+
 #define SYSTICKS_PER_SECOND		100
 #define SYSTICK_PERIOD_MS		(1000 / SYSTICKS_PER_SECOND)
 
@@ -90,6 +99,7 @@ void ssi_udma_channel_config(unsigned int channel);
 unsigned char ucControlTable[1024] __attribute__ ((aligned(1024)));
 
 volatile unsigned long g_ulSysTickCount = 0;
+volatile unsigned long last_frame = 0;
 
 #ifdef DEBUG
 #define DEBUG_PRINT UARTprintf
@@ -101,8 +111,58 @@ volatile unsigned long g_ulFlags = 0;
 char *g_pcStatus;
 static volatile bool g_bUSBConfigured = false;
 
+void set_bottle(volatile unsigned char* framebuffer, unsigned int bus, unsigned int crate, unsigned int bottle, const color_t c) {
+	const unsigned int dst	= bus*BUS_SIZE + (crate*(CRATE_SIZE+1) + bottle)*BYTES_PER_PIXEL*BITS_PER_PIXEL;
+	const unsigned char MASK1 = 0xE; 
+	const unsigned char MASK0=0x8;
+	const unsigned char red = c.red;
+	const unsigned char green = c.green;
+	const unsigned char blue = c.blue;
+
+	framebuffer[dst]	   = ((red&0x80)?MASK1<<4:MASK0<<4  )
+		| ((red&0x40)?MASK1:MASK0        );
+	framebuffer[dst + 1] = ((red&0x20)?MASK1<<4:MASK0<<4  )
+		| ((red&0x10)?MASK1:MASK0        );
+	framebuffer[dst + 2] = ((red&0x8)?MASK1<<4:MASK0<<4   )
+		| ((red&0x4)?MASK1:MASK0         );
+	framebuffer[dst + 3] = ((red&0x2)?MASK1<<4:MASK0<<4   )
+		| ((red&0x1)?MASK1:MASK0         );
+	framebuffer[dst + 4] = ((green&0x80)?MASK1<<4:MASK0<<4) 
+		| ((green&0x40)?MASK1:MASK0      );
+	framebuffer[dst + 5] = ((green&0x20)?MASK1<<4:MASK0<<4) 
+		| ((green&0x10)?MASK1:MASK0      );
+	framebuffer[dst + 6] = ((green&0x8)?MASK1<<4:MASK0<<4 )
+		| ((green&0x4)?MASK1:MASK0       );
+	framebuffer[dst + 7] = ((green&0x2)?MASK1<<4:MASK0<<4 )
+		| ((green&0x1)?MASK1:MASK0       );
+	framebuffer[dst + 8] = ((blue&0x80)?MASK1<<4:MASK0<<4 )
+		| ((blue&0x40)?MASK1:MASK0       );
+	framebuffer[dst + 9] = ((blue&0x20)?MASK1<<4:MASK0<<4 )
+		| ((blue&0x10)?MASK1:MASK0       );
+	framebuffer[dst +10] = ((blue&0x8)?MASK1<<4:MASK0<<4  )
+		| ((blue&0x4)?MASK1:MASK0        );
+	framebuffer[dst +11] = ((blue&0x2)?MASK1<<4:MASK0<<4  )
+		| ((blue&0x1)?MASK1:MASK0        );
+}
+
 void SysTickIntHandler(void) {
+	static bool waiting = 0;
 	g_ulSysTickCount++;
+	if(g_ulSysTickCount - last_frame > 250) {
+		UARTprintf("idle since %d\n", last_frame);
+		last_frame = g_ulSysTickCount;
+		waiting = !waiting;
+		memset((void*)framebuffer_input,0x88,BUS_COUNT*BUS_SIZE);
+		for(unsigned int bus = 0; bus < BUS_COUNT; bus++) {
+			for(unsigned int crate = 0; crate < CRATES_PER_BUS; crate++) {
+				//for(unsigned int bottle = 0; bottle <= CRATE_SIZE; bottle++) {
+				//set_bottle(framebuffer_input, bus, crate, bottle , waiting?white:red);
+				//}
+				set_bottle(framebuffer_input, bus, crate, CRATE_SIZE, waiting?white:red);
+			}
+		}
+		kickoff_transfers();
+	}
 }
 
 unsigned long RxHandler(void *pvCBData, unsigned long ulEvent, unsigned long ulMsgValue, void *pvMsgData) {
@@ -134,13 +194,17 @@ typedef struct {
 	unsigned char command; /* 0x00 for frame data, 0x01 to initiate latch */
 	unsigned char crate_x;
 	unsigned char crate_y;
-	unsigned char rgb_data[CRATE_SIZE*BYTES_PER_PIXEL];
+	color_t rgb_data [CRATE_SIZE];
+	//unsigned char rgb_data[CRATE_SIZE*BYTES_PER_PIXEL];
 } FramebufferData;
+
+
 
 FramebufferData accu;
 unsigned long fill;
 bool toggle = 1;
 unsigned long framebuffer_read(void *data, unsigned long len) {
+	static bool col_toggle = 0;
 	if(len < 1)
 		goto length_error;
 	DEBUG_PRINT("Rearranging data.\n");
@@ -151,9 +215,11 @@ unsigned long framebuffer_read(void *data, unsigned long len) {
 		DEBUG_PRINT("Starting DMA.\n");
 		fill = 0; toggle = 1;
 		kickoff_transfers();
+		last_frame = g_ulSysTickCount;
+		col_toggle = !col_toggle;
 	}else{
 		if(len != sizeof(FramebufferData))
-			UARTprintf("got %d, expected %d\n",len, sizeof(FramebufferData));
+			//UARTprintf("got %d, expected %d\n",len, sizeof(FramebufferData));
 			goto length_error;
 
 complete_framebuffer:
@@ -162,48 +228,21 @@ complete_framebuffer:
 			return len;
 		}
 
-		unsigned int idx = CRATE_MAP[fb->crate_x + fb->crate_y*CRATES_X];
-		unsigned int bus = idx>>4;
-		unsigned int crate = idx & 0x0F;
+		//UARTprintf("crate %d,%d\n",fb->crate_x, fb->crate_y);
+
+		const unsigned int idx = CRATE_MAP[fb->crate_x + fb->crate_y*CRATES_X];
+		const unsigned int bus = idx>>4;
+		const unsigned int crate = idx & 0x0F;
 		for(unsigned int x=0; x<CRATE_WIDTH; x++){
 			for(unsigned int y=0; y<CRATE_HEIGHT; y++){
-				unsigned int bottle	= BOTTLE_MAP[x + y*CRATE_WIDTH];
+				const unsigned int bottle	= BOTTLE_MAP[x + y*CRATE_WIDTH];
 //				if(idx == 0x07)
 //					bottle = FUCKED_UP_BOTTLE_MAP[x + y*CRATE_WIDTH];
-				unsigned int dst	= bus*BUS_SIZE + (crate*CRATE_SIZE + bottle)*BYTES_PER_PIXEL*BITS_PER_PIXEL;
-				unsigned int src	= (y*CRATE_WIDTH + x)*BYTES_PER_PIXEL;
-				// Copy r, g and b data
-#define MASK1 0xE
-#define MASK0 0x8
-				unsigned char red = fb->rgb_data[src];
-				unsigned char green = fb->rgb_data[src+1];
-				unsigned char blue = fb->rgb_data[src+2];
-				framebuffer_input[dst]	   = ((red&0x80)?MASK1<<4:MASK0<<4  )
-							   | ((red&0x40)?MASK1:MASK0        );
-				framebuffer_input[dst + 1] = ((red&0x20)?MASK1<<4:MASK0<<4  )
-							   | ((red&0x10)?MASK1:MASK0        );
-				framebuffer_input[dst + 2] = ((red&0x8)?MASK1<<4:MASK0<<4   )
-							   | ((red&0x4)?MASK1:MASK0         );
-				framebuffer_input[dst + 3] = ((red&0x2)?MASK1<<4:MASK0<<4   )
-							   | ((red&0x1)?MASK1:MASK0         );
-				framebuffer_input[dst + 4] = ((green&0x80)?MASK1<<4:MASK0<<4) 
-							   | ((green&0x40)?MASK1:MASK0      );
-				framebuffer_input[dst + 5] = ((green&0x20)?MASK1<<4:MASK0<<4) 
-							   | ((green&0x10)?MASK1:MASK0      );
-				framebuffer_input[dst + 6] = ((green&0x8)?MASK1<<4:MASK0<<4 )
-							   | ((green&0x4)?MASK1:MASK0       );
-				framebuffer_input[dst + 7] = ((green&0x2)?MASK1<<4:MASK0<<4 )
-							   | ((green&0x1)?MASK1:MASK0       );
-				framebuffer_input[dst + 8] = ((blue&0x80)?MASK1<<4:MASK0<<4 )
-							   | ((blue&0x40)?MASK1:MASK0       );
-				framebuffer_input[dst + 9] = ((blue&0x20)?MASK1<<4:MASK0<<4 )
-							   | ((blue&0x10)?MASK1:MASK0       );
-				framebuffer_input[dst +10] = ((blue&0x8)?MASK1<<4:MASK0<<4  )
-							   | ((blue&0x4)?MASK1:MASK0        );
-				framebuffer_input[dst +11] = ((blue&0x2)?MASK1<<4:MASK0<<4  )
-							   | ((blue&0x1)?MASK1:MASK0        );
+				const unsigned int src	= (y*CRATE_WIDTH + x);//*BYTES_PER_PIXEL;
+				set_bottle(framebuffer_input, bus, crate, bottle,fb->rgb_data[src]);
 			}
 		}
+		set_bottle(framebuffer_input, bus, crate, CRATE_SIZE, col_toggle?white:green);
 	}
 	return len;
 length_error:
@@ -249,6 +288,7 @@ void kickoff_transfers() {
 	framebuffer_output = framebuffer_input;
 	framebuffer_input = tmp;
 	/* Re-schedule DMA transfers */
+	// caution, du to funny alignments of the buffers, these need to stay in order, to prevent someone from clearing the wrong stuff...
 	kickoff_transfer(11, 0, SSI0_BASE);
 	kickoff_transfer(25, 1, SSI1_BASE);
 	kickoff_transfer(13, 2, SSI2_BASE);
@@ -348,6 +388,11 @@ int main(void) {
 	MAP_GPIOPinConfigure(GPIO_PA5_SSI0TX);
 	MAP_GPIOPinTypeSSI(GPIO_PORTA_BASE, GPIO_PIN_2 | GPIO_PIN_5);
 
+	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+	MAP_GPIOPinConfigure(GPIO_PF2_SSI1CLK);
+	MAP_GPIOPinConfigure(GPIO_PF1_SSI1TX);
+	MAP_GPIOPinTypeSSI(GPIO_PORTF_BASE, GPIO_PIN_2 | GPIO_PIN_1);
+
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
 	MAP_GPIOPinConfigure(GPIO_PB4_SSI2CLK);
 	MAP_GPIOPinConfigure(GPIO_PB7_SSI2TX);
@@ -358,10 +403,6 @@ int main(void) {
 	MAP_GPIOPinConfigure(GPIO_PD3_SSI3TX);
 	MAP_GPIOPinTypeSSI(GPIO_PORTD_BASE, GPIO_PIN_0 | GPIO_PIN_3);
 
-	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-	MAP_GPIOPinConfigure(GPIO_PF2_SSI1CLK);
-	MAP_GPIOPinConfigure(GPIO_PF1_SSI1TX);
-	MAP_GPIOPinTypeSSI(GPIO_PORTF_BASE, GPIO_PIN_2 | GPIO_PIN_1);
 
 	/* Configure SSI0..3 for the ws2801's SPI-like protocol */
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
