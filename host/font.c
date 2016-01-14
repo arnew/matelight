@@ -8,7 +8,7 @@
 
 /* Clips at buffer bounds */
 void render_glyph(glyph_t *g, color_t *buf, unsigned int bufwidth, int offx, unsigned int offy, color_t fg, color_t bg){
-	unsigned int bitmap_row_width = g->width/8;
+	unsigned int bitmap_row_width = (4+g->width)/8;
 	uint8_t *bitmap = ((uint8_t *)g) + sizeof(glyph_t);
 	for(unsigned int y=0; y < g->height; y++){
 		long int data = 0;
@@ -168,7 +168,8 @@ glyphtable_t *read_bdf(FILE *f){
 			}
 
 		}else if(strcmp("BITMAP", line) == 0){
-			unsigned int row_bytes = dwidth/8;
+			//fprintf(stderr,"dwidth: %d\n",dwidth);
+			unsigned int row_bytes = (4+dwidth)/8;
 			glyph_data = malloc(sizeof(glyph_t) + row_bytes * current_glyph.height);
 			if(!glyph_data){
 				fprintf(stderr, "Cannot malloc() memory.\n");
@@ -222,14 +223,16 @@ glyphtable_t *read_bdf(FILE *f){
 				// Right-align data
 				data >>= ((read-1)*4 - dwidth);
 				// Copy rightmost bytes of data to destination buffer
+//fprintf(stderr,"read: %x data: %x, row_bytes: %d\n", read,data, row_bytes);
 				for(unsigned int j=0; j<row_bytes; j++){
 					bitmap[(i+1)*row_bytes-j-1] = data&0xFF;
+//fprintf(stderr,"bitmap: %x\n", bitmap[(i+1)*row_bytes-j-1]);
 					data >>= 8;
 				}
 				i++;
 			}
 
-			if(encoding >= glyph_table->size){
+			while (encoding >= glyph_table->size){
 				glyph_table = extend_glyphtable(glyph_table);
 				if(!glyph_table){
 					fprintf(stderr, "Cannot extend glyph table.\n");
@@ -251,6 +254,7 @@ glyphtable_t *read_bdf(FILE *f){
 	}
 	return glyph_table;
 error:
+	fprintf(stderr,"error reading glyph table.\n");
 	free(glyph_data);
 	free_glyphtable(glyph_table);
 	return NULL;

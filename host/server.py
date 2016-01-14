@@ -33,9 +33,10 @@ class TextRenderer:
     def __init__(self, text, title='default', checkwidth=False, font=bdf.unifont):
         self.text = text
         self.font = font
-        (self.width, _), _testrender  = font.compute_text_bounds(text), font.render_text(text, 0)
+        (self.width, self.height), _testrender  = font.compute_text_bounds(text), font.render_text(text, 0)
+        #log('rendered text to: {}, {}'.format(self.width,self.height))
         self.title = title
-        if self.width > config.max_marquee_width:
+        if self.width > config.max_marquee_width or self.height > config.display_height:
             raise ValueError()
 
     def __iter__(self):
