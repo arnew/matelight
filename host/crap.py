@@ -17,7 +17,7 @@ class CRAPClient:
 	def sendframe(self, frame):
 		fb = numpy.frombuffer(frame, dtype=numpy.uint8)
 		fb.shape = config.frame_size, len(frame)/config.frame_size
-		self.sock.sendto(fb[:,:3].tobytes(), (self.ip, self.port))
+		self.sock.sendto(fb[:,:3].tostring(), (self.ip, self.port))
 
 
 def _timestamped_recv(sock):
