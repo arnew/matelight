@@ -44,7 +44,7 @@
 #define CRATE_COUNT		(CRATES_X*CRATES_Y)
 #define CRATE_SIZE		(CRATE_WIDTH*CRATE_HEIGHT)
 #define BUS_SIZE		(NUM_BOOTSTRAP_LED+(CRATES_PER_BUS*(CRATE_SIZE+NUM_STATUS_LED))*BYTES_PER_PIXEL*BITS_PER_PIXEL)
-unsigned const char const BOTTLE_MAP[CRATE_SIZE] = {
+unsigned const char const BOTTLE_MAP[CRATE_HEIGHT][CRATE_WIDTH] = {
 //	18,17,16,15,
 //	19,6,7,14,
 //	20,5,8,13,
@@ -55,10 +55,10 @@ unsigned const char const BOTTLE_MAP[CRATE_SIZE] = {
 	//2,5,10,13,18,21,
 	//1,6,9, 14,17,22,
 	//0,7,8, 15,16,23,
-	18,19,20,21,22,23,
-	17,16,15,14,13,12,
-	 6, 7, 8, 9,10,11,
-	 5, 4, 3, 2, 1, 0
+	{18,19,20,21,22,23,},
+	{17,16,15,14,13,12,},
+	 {6, 7, 8, 9,10,11,},
+	 {5, 4, 3, 2, 1, 0,},
 };
 
 unsigned const char const FUCKED_UP_BOTTLE_MAP[CRATE_SIZE] = {
@@ -87,10 +87,40 @@ const color_t green = {0x00,0xff,0x00};
 #define SYSTICKS_PER_SECOND		100
 #define SYSTICK_PERIOD_MS		(1000 / SYSTICKS_PER_SECOND)
 
-unsigned char framebuffer1[BUS_COUNT*BUS_SIZE];
-unsigned char framebuffer2[BUS_COUNT*BUS_SIZE];
-volatile unsigned char *framebuffer_input = framebuffer1;
-volatile unsigned char *framebuffer_output = framebuffer2;
+typedef struct {
+	uint32_t red;
+	uint32_t green;
+	uint32_t blue;
+} bottle;
+_Static_assert( BYTES_PER_PIXEL * BITS_PER_PIXEL == sizeof(bottle), "bottle size does not match");
+
+typedef struct {
+	bottle bottles[CRATE_SIZE];
+#if NUM_STATUS_LED > 0
+	bottle status[NUM_STATUS_LED];
+#endif
+} crate;
+
+typedef struct {
+#if NUM_BOOTSTRAP_LED > 0
+	bottle bootstrap[NUM_BOOTSTRAP_LED];
+#endif
+	crate crates[CRATES_PER_BUS];
+} busbuffer;
+_Static_assert( BUS_SIZE == sizeof(busbuffer), "bus buffer size differs from BUS_SIZE");
+
+typedef struct {
+	unsigned char command; /* 0x00 for frame data, 0x01 to initiate latch */
+	unsigned char crate_x;
+	unsigned char crate_y;
+	color_t rgb_data [CRATE_WIDTH][CRATE_HEIGHT];
+	//unsigned char rgb_data[CRATE_SIZE*BYTES_PER_PIXEL];
+} FramebufferData;
+
+volatile busbuffer framebuffer1[BUS_COUNT];
+volatile busbuffer framebuffer2[BUS_COUNT];
+volatile busbuffer *framebuffer_input = framebuffer1;
+volatile busbuffer *framebuffer_output = framebuffer2;
 
 unsigned long framebuffer_read(void *data, unsigned long len);
 /* Kick off DMA transfer from RAM to SPI interfaces */
@@ -121,13 +151,27 @@ uint32_t make_ws2811_bits(uint8_t d) {
 		| lookup[ (data&0xC) >> 2 ] << 8
 		| lookup[(data&0x3)  ] ;
 }
+void set_ws2811(volatile bottle*dst,const color_t c) {
+	dst->red = make_ws2811_bits(c.red);
+	dst->green = make_ws2811_bits(c.green);
+	dst->blue = make_ws2811_bits(c.blue);
+}
 
-void set_bottle(volatile uint8_t* framebuffer, unsigned int bus, unsigned int crate, int bottle, const color_t c) {
-	const uint32_t dst	= bus*BUS_SIZE + (NUM_BOOTSTRAP_LED + crate*(CRATE_SIZE+NUM_STATUS_LED) + bottle)*BYTES_PER_PIXEL*BITS_PER_PIXEL;
-	uint32_t* fb = (uint32_t*)( framebuffer + dst);
-	fb[0] = make_ws2811_bits(c.red);
-	fb[1] = make_ws2811_bits(c.green);
-	fb[2] = make_ws2811_bits(c.blue);
+void set_bottle(volatile busbuffer* buf, unsigned int bus, unsigned int crate, int x, int y, const color_t c) {
+	volatile bottle *dst = &(buf[bus].crates[crate].bottles[BOTTLE_MAP[x][y]]);
+	set_ws2811(dst,c);
+}
+void set_status_leds(volatile busbuffer* buf, unsigned int bus, unsigned int crate, const color_t c) {
+	for(uint8_t i=0; i< NUM_STATUS_LED; i++) {
+		set_ws2811(&(buf[bus].crates[crate].status[i]),c);
+	}
+}
+void set_bootstrap_leds(volatile busbuffer* buf, unsigned int bus, const color_t c) {
+#if NUM_BOOTSTRAP_LED > 0
+	for(uint8_t i=0; i< NUM_BOOTSTRAP_LED; i++) {
+		set_ws2811(&(buf[bus].bootstrap[i]),c);
+	}
+#endif
 }
 
 void SysTickIntHandler(void) {
@@ -144,7 +188,7 @@ void SysTickIntHandler(void) {
 					//for(unsigned int bottle = 0; bottle <= CRATE_SIZE; bottle++) {
 					//set_bottle(framebuffer_input, bus, crate, bottle , waiting?white:red);
 					//}
-					set_bottle(framebuffer_input, bus, crate, CRATE_SIZE, waiting?white:red);
+					set_status_leds(framebuffer_input, bus, crate, waiting?white:red);
 				}
 			}
 			kickoff_transfers();
@@ -176,14 +220,6 @@ unsigned long RxHandler(void *pvCBData, unsigned long ulEvent, unsigned long ulM
 	}
 	return 0;
 }
-
-typedef struct {
-	unsigned char command; /* 0x00 for frame data, 0x01 to initiate latch */
-	unsigned char crate_x;
-	unsigned char crate_y;
-	color_t rgb_data [CRATE_SIZE];
-	//unsigned char rgb_data[CRATE_SIZE*BYTES_PER_PIXEL];
-} FramebufferData;
 
 
 
@@ -222,19 +258,12 @@ complete_framebuffer:
 		const unsigned int crate = idx & 0x0F;
 		for(unsigned int x=0; x<CRATE_WIDTH; x++){
 			for(unsigned int y=0; y<CRATE_HEIGHT; y++){
-				const unsigned int bottle	= BOTTLE_MAP[x + y*CRATE_WIDTH];
-//				if(idx == 0x07)
-//					bottle = FUCKED_UP_BOTTLE_MAP[x + y*CRATE_WIDTH];
-				const unsigned int src	= (y*CRATE_WIDTH + x);//*BYTES_PER_PIXEL;
-				set_bottle(framebuffer_input, bus, crate, bottle,fb->rgb_data[src]);
+				set_bottle(framebuffer_input, bus, crate, y,x,fb->rgb_data[x][y]);
 			}
 		}
-		for(unsigned int x = 0; x < NUM_STATUS_LED ; x++) {
-			set_bottle(framebuffer_input, bus, crate, CRATE_SIZE + x, col_toggle?white:green);
-		}
-		for(unsigned int x = 0; x < NUM_BOOTSTRAP_LED; x++) {
-			set_bottle(framebuffer_input, bus, 0, x-NUM_BOOTSTRAP_LED, col_toggle?white:green);
-		}
+		set_status_leds(framebuffer_input, bus, crate, col_toggle?white:green);
+		set_bootstrap_leds(framebuffer_input, bus, col_toggle?white:green);
+	
 	}
 	return len;
 length_error:
@@ -276,7 +305,7 @@ void kickoff_transfers() {
 	/* Wait 1.2ms (20kCy @ 50MHz) to ensure the WS2801 latch this frame's data */
 	SysCtlDelay(20000);
 	/* Swap buffers */
-	volatile unsigned char *tmp = framebuffer_output;
+	volatile busbuffer *tmp = framebuffer_output;
 	framebuffer_output = framebuffer_input;
 	framebuffer_input = tmp;
 	/* Re-schedule DMA transfers */
