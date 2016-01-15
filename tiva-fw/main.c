@@ -29,98 +29,10 @@
 #include "utils/ustdlib.h"
 #include "usb_bulk_structs.h"
 #include <string.h>
+#include "types.h"
+#include "config.h"
+#include "checks.h"
 
-#define CRATE_WIDTH		6
-#define CRATE_HEIGHT		4
-#define CRATES_X		3
-#define CRATES_Y		2
-#define BUS_COUNT		3
-#define BITS_PER_PIXEL 4
-#define BYTES_PER_PIXEL	3
-#define CRATES_PER_BUS	2
-#define NUM_BOOTSTRAP_LED 0
-#define NUM_STATUS_LED 1
-#define BUS_ROWS		(CRATES_Y*CRATE_HEIGHT)
-#define CRATE_COUNT		(CRATES_X*CRATES_Y)
-#define CRATE_SIZE		(CRATE_WIDTH*CRATE_HEIGHT)
-#define BUS_SIZE		(NUM_BOOTSTRAP_LED+(CRATES_PER_BUS*(CRATE_SIZE+NUM_STATUS_LED))*BYTES_PER_PIXEL*BITS_PER_PIXEL)
-unsigned const char const BOTTLE_MAP[CRATE_HEIGHT][CRATE_WIDTH] = {
-//	18,17,16,15,
-//	19,6,7,14,
-//	20,5,8,13,
-//	21,4,9,12,
-//	22,3,10,11,
-//	23,2,1,0,
-	//3,4,11,12,19,20,
-	//2,5,10,13,18,21,
-	//1,6,9, 14,17,22,
-	//0,7,8, 15,16,23,
-	{18,19,20,21,22,23,},
-	{17,16,15,14,13,12,},
-	 {6, 7, 8, 9,10,11,},
-	 {5, 4, 3, 2, 1, 0,},
-};
-
-unsigned const char const FUCKED_UP_BOTTLE_MAP[CRATE_SIZE] = {
-	 16,17,  18,19, 0,
-	 15,14,  13,12, 1,
-	  8, 9,  10,11, 2,
-	  7, 6,   5, 4, 3
-};
-
-unsigned const char const CRATE_MAP[CRATE_COUNT] = {
-	0x01,0x11,0x21,
-	0x00,0x10,0x20,
-	//0x21,0x11,0x01,
-	//0x20,0x10,0x00,
-};
-
-typedef struct {
-	unsigned char red, green, blue;
-} color_t;
-
-const color_t white = {0xff,0xff,0xff};
-const color_t black= {0x00,0x00,0x00};
-const color_t red= {0xff,0x00,0x00};
-const color_t green = {0x00,0xff,0x00};
-
-#define SYSTICKS_PER_SECOND		100
-#define SYSTICK_PERIOD_MS		(1000 / SYSTICKS_PER_SECOND)
-
-typedef struct {
-	uint32_t red;
-	uint32_t green;
-	uint32_t blue;
-} bottle;
-_Static_assert( BYTES_PER_PIXEL * BITS_PER_PIXEL == sizeof(bottle), "bottle size does not match");
-
-typedef struct {
-	bottle bottles[CRATE_SIZE];
-#if NUM_STATUS_LED > 0
-	bottle status[NUM_STATUS_LED];
-#endif
-} crate;
-
-typedef struct {
-#if NUM_BOOTSTRAP_LED > 0
-	bottle bootstrap[NUM_BOOTSTRAP_LED];
-#endif
-	crate crates[CRATES_PER_BUS];
-} busbuffer;
-_Static_assert( BUS_SIZE == sizeof(busbuffer), "bus buffer size differs from BUS_SIZE");
-
-typedef struct {
-	unsigned char command; /* 0x00 for frame data, 0x01 to initiate latch */
-	unsigned char crate_x;
-	unsigned char crate_y;
-	color_t rgb_data [CRATE_WIDTH][CRATE_HEIGHT];
-	//unsigned char rgb_data[CRATE_SIZE*BYTES_PER_PIXEL];
-} FramebufferData;
-
-volatile busbuffer framebuffer1[BUS_COUNT];
-volatile busbuffer framebuffer2[BUS_COUNT];
-volatile busbuffer *framebuffer_input = framebuffer1;
-volatile busbuffer *framebuffer_output = framebuffer2;
 
 unsigned long framebuffer_read(void *data, unsigned long len);
 /* Kick off DMA transfer from RAM to SPI interfaces */
@@ -128,10 +40,26 @@ void kickoff_transfers(void);
 void kickoff_transfer(unsigned int channel, unsigned int offset, int base);
 void ssi_udma_channel_config(unsigned int channel);
 
+#define SYSTICKS_PER_SECOND		100
+#define SYSTICK_PERIOD_MS		(1000 / SYSTICKS_PER_SECOND)
+
 unsigned char ucControlTable[1024] __attribute__ ((aligned(1024)));
 
 volatile unsigned long g_ulSysTickCount = 0;
 volatile unsigned long last_frame = 0;
+
+volatile busbuffer framebuffer1[BUS_COUNT];
+volatile busbuffer framebuffer2[BUS_COUNT];
+volatile busbuffer *framebuffer_input = framebuffer1;
+volatile busbuffer *framebuffer_output = framebuffer2;
+const color_t white = {0xff,0xff,0xff};
+const color_t black= {0x00,0x00,0x00};
+const color_t red= {0xff,0x00,0x00};
+const color_t green = {0x00,0xff,0x00};
+
+volatile unsigned long g_ulFlags = 0;
+char *g_pcStatus;
+static volatile bool g_bUSBConfigured = false;
 
 #ifdef DEBUG
 #define DEBUG_PRINT UARTprintf
@@ -139,9 +67,6 @@ volatile unsigned long last_frame = 0;
 #define DEBUG_PRINT while(0) ((int (*)(char *, ...))0)
 #endif
 
-volatile unsigned long g_ulFlags = 0;
-char *g_pcStatus;
-static volatile bool g_bUSBConfigured = false;
 
 uint32_t make_ws2811_bits(uint8_t d) {
 	const uint32_t data = d;
@@ -253,9 +178,9 @@ complete_framebuffer:
 
 		//UARTprintf("crate %d,%d\n",fb->crate_x, fb->crate_y);
 
-		const unsigned int idx = CRATE_MAP[fb->crate_x + fb->crate_y*CRATES_X];
-		const unsigned int bus = idx>>4;
-		const unsigned int crate = idx & 0x0F;
+		const layout idx = CRATE_MAP[fb->crate_x][fb->crate_y];
+		const unsigned int bus = idx.bus;
+		const unsigned int crate = idx.crate;
 		for(unsigned int x=0; x<CRATE_WIDTH; x++){
 			for(unsigned int y=0; y<CRATE_HEIGHT; y++){
 				set_bottle(framebuffer_input, bus, crate, y,x,fb->rgb_data[x][y]);
