@@ -38,10 +38,12 @@
 #define BITS_PER_PIXEL 4
 #define BYTES_PER_PIXEL	3
 #define CRATES_PER_BUS	2
+#define NUM_BOOTSTRAP_LED 0
+#define NUM_STATUS_LED 1
 #define BUS_ROWS		(CRATES_Y*CRATE_HEIGHT)
 #define CRATE_COUNT		(CRATES_X*CRATES_Y)
 #define CRATE_SIZE		(CRATE_WIDTH*CRATE_HEIGHT)
-#define BUS_SIZE		(CRATES_PER_BUS*(CRATE_SIZE+1)*BYTES_PER_PIXEL*BITS_PER_PIXEL)
+#define BUS_SIZE		(NUM_BOOTSTRAP_LED+(CRATES_PER_BUS*(CRATE_SIZE+NUM_STATUS_LED))*BYTES_PER_PIXEL*BITS_PER_PIXEL)
 unsigned const char const BOTTLE_MAP[CRATE_SIZE] = {
 //	18,17,16,15,
 //	19,6,7,14,
@@ -152,16 +154,18 @@ void SysTickIntHandler(void) {
 		UARTprintf("idle since %d\n", last_frame);
 		last_frame = g_ulSysTickCount;
 		waiting = !waiting;
-		memset((void*)framebuffer_input,0x88,BUS_COUNT*BUS_SIZE);
-		for(unsigned int bus = 0; bus < BUS_COUNT; bus++) {
-			for(unsigned int crate = 0; crate < CRATES_PER_BUS; crate++) {
-				//for(unsigned int bottle = 0; bottle <= CRATE_SIZE; bottle++) {
-				//set_bottle(framebuffer_input, bus, crate, bottle , waiting?white:red);
-				//}
-				set_bottle(framebuffer_input, bus, crate, CRATE_SIZE, waiting?white:red);
+		if(NUM_STATUS_LED>0) {
+			memset((void*)framebuffer_input,0x88,BUS_COUNT*BUS_SIZE);
+			for(unsigned int bus = 0; bus < BUS_COUNT; bus++) {
+				for(unsigned int crate = 0; crate < CRATES_PER_BUS; crate++) {
+					//for(unsigned int bottle = 0; bottle <= CRATE_SIZE; bottle++) {
+					//set_bottle(framebuffer_input, bus, crate, bottle , waiting?white:red);
+					//}
+					set_bottle(framebuffer_input, bus, crate, CRATE_SIZE, waiting?white:red);
+				}
 			}
+			kickoff_transfers();
 		}
-		kickoff_transfers();
 	}
 }
 
@@ -242,7 +246,12 @@ complete_framebuffer:
 				set_bottle(framebuffer_input, bus, crate, bottle,fb->rgb_data[src]);
 			}
 		}
-		set_bottle(framebuffer_input, bus, crate, CRATE_SIZE, col_toggle?white:green);
+		for(unsigned int x = 0; x < NUM_STATUS_LED ; x++) {
+			set_bottle(framebuffer_input, bus, crate, CRATE_SIZE + x, col_toggle?white:green);
+		}
+		for(unsigned int x = 0; x < NUM_BOOTSTRAP_LED; x++) {
+			set_bottle(framebuffer_input, bus, 0, x-NUM_BOOTSTRAP_LED, col_toggle?white:green);
+		}
 	}
 	return len;
 length_error:
