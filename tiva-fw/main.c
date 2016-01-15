@@ -113,38 +113,21 @@ volatile unsigned long g_ulFlags = 0;
 char *g_pcStatus;
 static volatile bool g_bUSBConfigured = false;
 
-void set_bottle(volatile unsigned char* framebuffer, unsigned int bus, unsigned int crate, unsigned int bottle, const color_t c) {
-	const unsigned int dst	= bus*BUS_SIZE + (crate*(CRATE_SIZE+1) + bottle)*BYTES_PER_PIXEL*BITS_PER_PIXEL;
-	const unsigned char MASK1 = 0xE; 
-	const unsigned char MASK0=0x8;
-	const unsigned char red = c.red;
-	const unsigned char green = c.green;
-	const unsigned char blue = c.blue;
+uint32_t make_ws2811_bits(uint8_t d) {
+	const uint32_t data = d;
+	const static uint8_t lookup[4] = {0x88,0x8E,0xE8,0xEE};
+	return lookup[ (data&0xC0) >> 6  ] << 24
+		| lookup[ (data&0x30) >> 4 ] << 16
+		| lookup[ (data&0xC) >> 2 ] << 8
+		| lookup[(data&0x3)  ] ;
+}
 
-	framebuffer[dst]	   = ((red&0x80)?MASK1<<4:MASK0<<4  )
-		| ((red&0x40)?MASK1:MASK0        );
-	framebuffer[dst + 1] = ((red&0x20)?MASK1<<4:MASK0<<4  )
-		| ((red&0x10)?MASK1:MASK0        );
-	framebuffer[dst + 2] = ((red&0x8)?MASK1<<4:MASK0<<4   )
-		| ((red&0x4)?MASK1:MASK0         );
-	framebuffer[dst + 3] = ((red&0x2)?MASK1<<4:MASK0<<4   )
-		| ((red&0x1)?MASK1:MASK0         );
-	framebuffer[dst + 4] = ((green&0x80)?MASK1<<4:MASK0<<4) 
-		| ((green&0x40)?MASK1:MASK0      );
-	framebuffer[dst + 5] = ((green&0x20)?MASK1<<4:MASK0<<4) 
-		| ((green&0x10)?MASK1:MASK0      );
-	framebuffer[dst + 6] = ((green&0x8)?MASK1<<4:MASK0<<4 )
-		| ((green&0x4)?MASK1:MASK0       );
-	framebuffer[dst + 7] = ((green&0x2)?MASK1<<4:MASK0<<4 )
-		| ((green&0x1)?MASK1:MASK0       );
-	framebuffer[dst + 8] = ((blue&0x80)?MASK1<<4:MASK0<<4 )
-		| ((blue&0x40)?MASK1:MASK0       );
-	framebuffer[dst + 9] = ((blue&0x20)?MASK1<<4:MASK0<<4 )
-		| ((blue&0x10)?MASK1:MASK0       );
-	framebuffer[dst +10] = ((blue&0x8)?MASK1<<4:MASK0<<4  )
-		| ((blue&0x4)?MASK1:MASK0        );
-	framebuffer[dst +11] = ((blue&0x2)?MASK1<<4:MASK0<<4  )
-		| ((blue&0x1)?MASK1:MASK0        );
+void set_bottle(volatile uint8_t* framebuffer, unsigned int bus, unsigned int crate, int bottle, const color_t c) {
+	const uint32_t dst	= bus*BUS_SIZE + (NUM_BOOTSTRAP_LED + crate*(CRATE_SIZE+NUM_STATUS_LED) + bottle)*BYTES_PER_PIXEL*BITS_PER_PIXEL;
+	uint32_t* fb = (uint32_t*)( framebuffer + dst);
+	fb[0] = make_ws2811_bits(c.red);
+	fb[1] = make_ws2811_bits(c.green);
+	fb[2] = make_ws2811_bits(c.blue);
 }
 
 void SysTickIntHandler(void) {
