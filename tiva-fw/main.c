@@ -68,6 +68,7 @@ static volatile bool g_bUSBConfigured = false;
 #endif
 
 
+#if defined(PIXEL_TYPE_WS2811)
 uint32_t make_ws2811_bits(uint8_t d) {
 	const uint32_t data = d;
 	const static uint8_t lookup[4] = {0x88,0x8E,0xE8,0xEE};
@@ -76,25 +77,34 @@ uint32_t make_ws2811_bits(uint8_t d) {
 		| lookup[ (data&0xC) >> 2 ] << 8
 		| lookup[(data&0x3)  ] ;
 }
-void set_ws2811(volatile bottle*dst,const color_t c) {
+void set_pixel(volatile bottle*dst,const color_t c) {
 	dst->red = make_ws2811_bits(c.red);
 	dst->green = make_ws2811_bits(c.green);
 	dst->blue = make_ws2811_bits(c.blue);
 }
+#elif defined(PIXEL_TYPE_WS2801)
+void set_pixel(volatile bottle*dst,const color_t c) {
+	dst->red = c.red;
+	dst->green = c.green;
+	dst->blue = c.blue;
+}
+#else 
+#error "no known pixel type was defined"
+#endif
 
 void set_bottle(volatile busbuffer* buf, unsigned int bus, unsigned int crate, int x, int y, const color_t c) {
 	volatile bottle *dst = &(buf[bus].crates[crate].bottles[BOTTLE_MAP[x][y]]);
-	set_ws2811(dst,c);
+	set_pixel(dst,c);
 }
 void set_status_leds(volatile busbuffer* buf, unsigned int bus, unsigned int crate, const color_t c) {
 	for(uint8_t i=0; i< NUM_STATUS_LED; i++) {
-		set_ws2811(&(buf[bus].crates[crate].status[i]),c);
+		set_pixel(&(buf[bus].crates[crate].status[i]),c);
 	}
 }
 void set_bootstrap_leds(volatile busbuffer* buf, unsigned int bus, const color_t c) {
 #if NUM_BOOTSTRAP_LED > 0
 	for(uint8_t i=0; i< NUM_BOOTSTRAP_LED; i++) {
-		set_ws2811(&(buf[bus].bootstrap[i]),c);
+		set_pixel(&(buf[bus].bootstrap[i]),c);
 	}
 #endif
 }
@@ -217,6 +227,7 @@ length_error:
 	UARTprintf("Invalid packet length\n");
 	return len;
 }
+
 
 void kickoff_transfers() {
 	while(MAP_uDMAChannelIsEnabled(11)
@@ -356,10 +367,19 @@ int main(void) {
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI2);
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI3);
 
+#if defined(PIXEL_TYPE_WS2811)
 	MAP_SSIConfigSetExpClk(SSI0_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 3200000, 8);
 	MAP_SSIConfigSetExpClk(SSI1_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 3200000, 8);
 	MAP_SSIConfigSetExpClk(SSI2_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 3200000, 8);
 	MAP_SSIConfigSetExpClk(SSI3_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 3200000, 8);
+#elif defined(PIXEL_TYPE_WS2801)
+	MAP_SSIConfigSetExpClk(SSI0_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 2000000, 8);
+	MAP_SSIConfigSetExpClk(SSI1_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 2000000, 8);
+	MAP_SSIConfigSetExpClk(SSI2_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 2000000, 8);
+	MAP_SSIConfigSetExpClk(SSI3_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, 2000000, 8);
+#else 
+#error "no known pixel type was defined"
+#endif
 
 	/* Configure the µDMA controller for use by the SPI interface */
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_UDMA);

@@ -11,8 +11,5 @@ typedef struct {
 	unsigned char red, green, blue;
 } color_t;
 
-typedef struct {
-	uint32_t red;
-	uint32_t green;
-	uint32_t blue;
-} bottle;
+
+

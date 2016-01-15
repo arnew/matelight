@@ -36,6 +36,7 @@ ROOT=../tiva
 # Include the common make definitions.
 #
 include ${ROOT}/makedefs
+CFLAGS+=--std=c11
 
 #
 # Where to find source files that do not live in this directory.
