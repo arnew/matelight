@@ -66,6 +66,7 @@ static uint32_t pui32Stack[256];
 //
 //*****************************************************************************
 __attribute__ ((section(".isr_vector")))
+__attribute__ ((used))
 void (* const g_pfnVectors[])(void) =
 {
     (void (*)(void))((uint32_t)pui32Stack + sizeof(pui32Stack)),

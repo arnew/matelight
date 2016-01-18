@@ -37,6 +37,14 @@ ROOT=../tiva
 #
 include ${ROOT}/makedefs
 CFLAGS+=--std=c11
+CFLAGS+=-flto
+LD=${PREFIX}-gcc
+LDFLAGS=
+#LDFLAGS+=-Wl,-M
+LDFLAGS+=-Wl,--gc-sections 
+LDFLAGS+=-flto 
+#LDFLAGS+=-Wl,-T,$${ldname} 
+#LDFLAGS+=-static -Wl,--entry,${ENTRY_${notdir ${@:.axf=}}}
 
 #
 # Where to find source files that do not live in this directory.
