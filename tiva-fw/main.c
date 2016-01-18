@@ -70,41 +70,40 @@ static volatile bool g_bUSBConfigured = false;
 
 #if defined(PIXEL_TYPE_WS2811)
 uint32_t make_ws2811_bits(uint8_t d) {
-	const uint32_t data = d;
+	const union { struct { unsigned int a:2, b:2, c:2, d:2; } b; uint8_t i; } data = {.i = d};
+	typedef union { struct { unsigned int a:8, b:8, c:8, d:8; } b; uint32_t i; } output8;
 	const static uint8_t lookup[4] = {0x88,0x8E,0xE8,0xEE};
-	return lookup[ (data&0xC0) >> 6  ] << 24
-		| lookup[ (data&0x30) >> 4 ] << 16
-		| lookup[ (data&0xC) >> 2 ] << 8
-		| lookup[(data&0x3)  ] ;
+	return (output8){.b = {.a = lookup[data.b.a], .b = lookup[data.b.b], .c = lookup[data.b.c], .d = lookup[data.b.d]}}.i;
 }
-void set_pixel(volatile bottle*dst,const color_t c) {
-	dst->red = make_ws2811_bits(c.red);
-	dst->green = make_ws2811_bits(c.green);
-	dst->blue = make_ws2811_bits(c.blue);
+bottle get_pixel(const color_t c) {
+	return (bottle) {.red = make_ws2811_bits(c.red), .green = make_ws2811_bits(c.green), .blue = make_ws2811_bits(c.blue)};
+}
+void init_framebuffer(volatile busbuffer * buf) {
+	memset((void*)buf,0x88,BUS_COUNT*BUS_SIZE);
 }
 #elif defined(PIXEL_TYPE_WS2801)
-void set_pixel(volatile bottle*dst,const color_t c) {
-	dst->red = c.red;
-	dst->green = c.green;
-	dst->blue = c.blue;
+bottle get_pixel(const color_t c) {
+	return (bottle) {.red = c.red, .green = c.green, .blue = c.blue};
 }
+void init_framebuffer(volatile busbuffer * buf) {}
 #else 
 #error "no known pixel type was defined"
 #endif
 
 void set_bottle(volatile busbuffer* buf, unsigned int bus, unsigned int crate, int x, int y, const color_t c) {
-	volatile bottle *dst = &(buf[bus].crates[crate].bottles[BOTTLE_MAP[x][y]]);
-	set_pixel(dst,c);
+	buf[bus].crates[crate].bottles[BOTTLE_MAP[x][y]] = get_pixel(c);
 }
 void set_status_leds(volatile busbuffer* buf, unsigned int bus, unsigned int crate, const color_t c) {
+#if NUM_STATUS_LED > 0
 	for(uint8_t i=0; i< NUM_STATUS_LED; i++) {
-		set_pixel(&(buf[bus].crates[crate].status[i]),c);
+		buf[bus].crates[crate].status[i] = get_pixel(c);
 	}
+#endif
 }
 void set_bootstrap_leds(volatile busbuffer* buf, unsigned int bus, const color_t c) {
 #if NUM_BOOTSTRAP_LED > 0
 	for(uint8_t i=0; i< NUM_BOOTSTRAP_LED; i++) {
-		set_pixel(&(buf[bus].bootstrap[i]),c);
+		buf[bus].bootstrap[i] = get_pixel(c);
 	}
 #endif
 }
@@ -117,7 +116,7 @@ void SysTickIntHandler(void) {
 		last_frame = g_ulSysTickCount;
 		waiting = !waiting;
 		if(NUM_STATUS_LED>0) {
-			memset((void*)framebuffer_input,0x88,BUS_COUNT*BUS_SIZE);
+			init_framebuffer(framebuffer_input);
 			for(unsigned int bus = 0; bus < BUS_COUNT; bus++) {
 				for(unsigned int crate = 0; crate < CRATES_PER_BUS; crate++) {
 					//for(unsigned int bottle = 0; bottle <= CRATE_SIZE; bottle++) {
@@ -198,7 +197,6 @@ complete_framebuffer:
 		}
 		set_status_leds(framebuffer_input, bus, crate, col_toggle?white:green);
 		set_bootstrap_leds(framebuffer_input, bus, col_toggle?white:green);
-	
 	}
 	return len;
 length_error:
