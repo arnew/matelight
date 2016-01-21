@@ -19,8 +19,8 @@ const bottlelocation BOTTLE_MAP[CRATE_HEIGHT][CRATE_WIDTH] = {
 #define CRATES_PER_BUS		2
 
 layout CRATE_MAP[CRATES_Y][CRATES_X] = {
-	{{0,1},{1,1},{2,1}},
-	{{0,0},{1,0},{2,0}},
+	{{2,1},{1,1},{0,1}},
+	{{2,0},{1,0},{0,0}},
 };
 
 #define NUM_BOOTSTRAP_LED 	0

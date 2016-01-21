@@ -33,7 +33,6 @@
 #include "config.h"
 #include "checks.h"
 
-
 unsigned long framebuffer_read(void *data, unsigned long len);
 /* Kick off DMA transfer from RAM to SPI interfaces */
 void kickoff_transfers(void);
@@ -245,9 +244,9 @@ void kickoff_transfers() {
 	/* Re-schedule DMA transfers */
 	// caution, du to funny alignments of the buffers, these need to stay in order, to prevent someone from clearing the wrong stuff...
 	kickoff_transfer(11, 0, SSI0_BASE);
-	kickoff_transfer(25, 1, SSI1_BASE);
+	//kickoff_transfer(25, 1, SSI1_BASE);
 	kickoff_transfer(13, 2, SSI2_BASE);
-	kickoff_transfer(15, 3, SSI3_BASE);
+	kickoff_transfer(15, 1, SSI3_BASE);
 }
 
 inline void kickoff_transfer(unsigned int channel, unsigned int offset, int base) {
