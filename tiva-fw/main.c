@@ -69,8 +69,8 @@ unsigned const char const FUCKED_UP_BOTTLE_MAP[CRATE_SIZE] = {
 };
 
 unsigned const char const CRATE_MAP[CRATE_COUNT] = {
-	0x01,0x11,0x21,
-	0x00,0x10,0x20,
+	0x21,0x11,0x01,
+	0x20,0x10,0x00,
 	//0x21,0x11,0x01,
 	//0x20,0x10,0x00,
 };
@@ -299,9 +299,9 @@ void kickoff_transfers() {
 	/* Re-schedule DMA transfers */
 	// caution, du to funny alignments of the buffers, these need to stay in order, to prevent someone from clearing the wrong stuff...
 	kickoff_transfer(11, 0, SSI0_BASE);
-	kickoff_transfer(25, 1, SSI1_BASE);
+	//kickoff_transfer(25, 1, SSI1_BASE);
 	kickoff_transfer(13, 2, SSI2_BASE);
-	kickoff_transfer(15, 3, SSI3_BASE);
+	kickoff_transfer(15, 1, SSI3_BASE);
 }
 
 inline void kickoff_transfer(unsigned int channel, unsigned int offset, int base) {
