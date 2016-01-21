@@ -90,7 +90,7 @@ void init_framebuffer(volatile busbuffer * buf) {}
 #endif
 
 void set_bottle(volatile busbuffer* buf, unsigned int bus, unsigned int crate, int x, int y, const color_t c) {
-	buf[bus].crates[crate].bottles[BOTTLE_MAP[x][y]] = get_pixel(c);
+	buf[bus].crates[crate].bottles[BOTTLE_MAP[y][x]] = get_pixel(c);
 }
 void set_status_leds(volatile busbuffer* buf, unsigned int bus, unsigned int crate, const color_t c) {
 #if NUM_STATUS_LED > 0
@@ -186,12 +186,12 @@ complete_framebuffer:
 
 		//UARTprintf("crate %d,%d\n",fb->crate_x, fb->crate_y);
 
-		const layout idx = CRATE_MAP[fb->crate_x][fb->crate_y];
+		const layout idx = CRATE_MAP[fb->crate_y][fb->crate_x];
 		const unsigned int bus = idx.bus;
 		const unsigned int crate = idx.crate;
 		for(unsigned int x=0; x<CRATE_WIDTH; x++){
 			for(unsigned int y=0; y<CRATE_HEIGHT; y++){
-				set_bottle(framebuffer_input, bus, crate, y,x,fb->rgb_data[x][y]);
+				set_bottle(framebuffer_input, bus, crate, x,y,fb->rgb_data[y][x]);
 			}
 		}
 		set_status_leds(framebuffer_input, bus, crate, col_toggle?white:green);

@@ -41,6 +41,6 @@ typedef struct {
 	unsigned char command; /* 0x00 for frame data, 0x01 to initiate latch */
 	unsigned char crate_x;
 	unsigned char crate_y;
-	color_t rgb_data [CRATE_WIDTH][CRATE_HEIGHT];
+	color_t rgb_data [CRATE_HEIGHT][CRATE_WIDTH];
 	//unsigned char rgb_data[CRATE_SIZE*BYTES_PER_PIXEL];
 } FramebufferData;
