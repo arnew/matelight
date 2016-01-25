@@ -1,5 +1,7 @@
 #pragma once
 
+#include <inttypes.h>
+
 typedef uint8_t bottlelocation;
 
 typedef struct {

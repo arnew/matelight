@@ -2,7 +2,6 @@
 
 #include "config.h"
 #include "types.h"
-#include "checks.h"
 
 #if defined(PIXEL_TYPE_WS2811)
 #define EXPANSION_PER_PART 4
