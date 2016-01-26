@@ -79,6 +79,8 @@ int main(void) {
 	
 	spi_init();
 
+	init_framebuffer(framebuffer1);
+	init_framebuffer(framebuffer2);
 
 	UARTprintf("Booted.\n");
 

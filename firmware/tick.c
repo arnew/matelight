@@ -17,13 +17,12 @@ void SysTickIntHandler(void) {
 		last_frame = g_ulSysTickCount;
 		waiting = !waiting;
 		if(NUM_STATUS_LED>0) {
-			init_framebuffer(framebuffer_input);
 			for(unsigned int bus = 0; bus < BUS_COUNT; bus++) {
 				for(unsigned int crate = 0; crate < CRATES_PER_BUS; crate++) {
 					//for(unsigned int bottle = 0; bottle <= CRATE_SIZE; bottle++) {
 					//set_bottle(framebuffer_input, bus, crate, bottle , waiting?white:red);
 					//}
-					set_status_leds(framebuffer_input, bus, crate, waiting?white:red);
+					set_status_leds(framebuffer_output, bus, crate, waiting?black:red);
 				}
 			}
 			kickoff_transfers();

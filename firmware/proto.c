@@ -50,6 +50,7 @@ char *g_pcStatus;
 FramebufferData accu;
 unsigned long fill;
 bool toggle = 1;
+bool swap_buffers = 0;
 unsigned long framebuffer_read(void *data, unsigned long len) {
 	static bool col_toggle = 0;
 	if(len < 1)
@@ -61,6 +62,7 @@ unsigned long framebuffer_read(void *data, unsigned long len) {
 			goto length_error;
 		DEBUG_PRINT("Starting DMA.\n");
 		fill = 0; toggle = 1;
+		swap_buffers = 1;
 		kickoff_transfers();
 		last_frame = g_ulSysTickCount;
 		col_toggle = !col_toggle;
@@ -85,8 +87,8 @@ complete_framebuffer:
 				set_bottle(framebuffer_input, bus, crate, x,y,fb->rgb_data[y][x]);
 			}
 		}
-		set_status_leds(framebuffer_input, bus, crate, col_toggle?white:green);
-		set_bootstrap_leds(framebuffer_input, bus, col_toggle?white:green);
+		set_status_leds(framebuffer_input, bus, crate, col_toggle?black:green);
+		set_bootstrap_leds(framebuffer_input, bus, col_toggle?black:green);
 	}
 	return len;
 length_error:

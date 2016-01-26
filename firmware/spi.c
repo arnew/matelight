@@ -49,9 +49,12 @@ void kickoff_transfers() {
 	/* Wait 1.2ms (20kCy @ 50MHz) to ensure the WS2801 latch this frame's data */
 	SysCtlDelay(20000);
 	/* Swap buffers */
+	if(swap_buffers) {
 	volatile busbuffer *tmp = framebuffer_output;
 	framebuffer_output = framebuffer_input;
 	framebuffer_input = tmp;
+		swap_buffers = 0;
+	}
 	/* Re-schedule DMA transfers */
 	// caution, du to funny alignments of the buffers, these need to stay in order, to prevent someone from clearing the wrong stuff...
 	kickoff_transfer(11, 0, SSI0_BASE);
