@@ -58,13 +58,15 @@ void kickoff_transfers() {
 	/* Re-schedule DMA transfers */
 	// caution, du to funny alignments of the buffers, these need to stay in order, to prevent someone from clearing the wrong stuff...
 	kickoff_transfer(11, 0, SSI0_BASE);
-	//kickoff_transfer(25, 1, SSI1_BASE);
+	kickoff_transfer(25, 1, SSI1_BASE);
 	kickoff_transfer(13, 2, SSI2_BASE);
-	kickoff_transfer(15, 1, SSI3_BASE);
+	kickoff_transfer(15, 3, SSI3_BASE);
 }
 
-inline void kickoff_transfer(unsigned int channel, unsigned int offset, int base) {
-	MAP_uDMAChannelTransferSet(channel | UDMA_PRI_SELECT, UDMA_MODE_BASIC, (unsigned char*)framebuffer_output+BUS_SIZE*offset, (void *)(base + SSI_O_DR), BUS_SIZE);
+inline void kickoff_transfer(unsigned int channel, unsigned int bus, int base) {
+	const int transfer = sizeof(busbuffer) / 2;
+_Static_assert(BUS_SIZE/2<=1024, "DMA Transfer must not be more than 1024");
+	MAP_uDMAChannelTransferSet(channel | UDMA_PRI_SELECT, UDMA_MODE_BASIC, (unsigned char*)(&framebuffer_output[bus]), (void *)(base + SSI_O_DR), transfer);
 	MAP_uDMAChannelEnable(channel);
 }
 
@@ -75,7 +77,7 @@ void ssi_udma_channel_config(unsigned int channel) {
 	MAP_uDMAChannelAttributeEnable(channel, UDMA_ATTR_USEBURST);
 	/* Configure the SSI Tx µDMA Channel to transfer from RAM to TX FIFO. The arbitration size is set to 4, which
 	 * matches the SSI TX FIFO µDMA trigger threshold. */
-	MAP_uDMAChannelControlSet(channel | UDMA_PRI_SELECT, UDMA_SIZE_8 | UDMA_SRC_INC_8 | UDMA_DST_INC_NONE | UDMA_ARB_4);
+	MAP_uDMAChannelControlSet(channel | UDMA_PRI_SELECT, UDMA_SIZE_16 | UDMA_SRC_INC_16 | UDMA_DST_INC_NONE | UDMA_ARB_1);
 }
 
 void spi_init(void) {
@@ -106,10 +108,10 @@ void spi_init(void) {
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI2);
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI3);
 
-	MAP_SSIConfigSetExpClk(SSI0_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, SPI_SPEED, 8);
-	MAP_SSIConfigSetExpClk(SSI1_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, SPI_SPEED, 8);
-	MAP_SSIConfigSetExpClk(SSI2_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, SPI_SPEED, 8);
-	MAP_SSIConfigSetExpClk(SSI3_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, SPI_SPEED, 8);
+	MAP_SSIConfigSetExpClk(SSI0_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, SPI_SPEED, 16);
+	MAP_SSIConfigSetExpClk(SSI1_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, SPI_SPEED, 16);
+	MAP_SSIConfigSetExpClk(SSI2_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, SPI_SPEED, 16);
+	MAP_SSIConfigSetExpClk(SSI3_BASE, MAP_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0, SSI_MODE_MASTER, SPI_SPEED, 16);
 
 	/* Configure the µDMA controller for use by the SPI interface */
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_UDMA);
