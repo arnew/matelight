@@ -33,7 +33,7 @@
 #include "config.h"
 #include "checks.h"
 #include "proto.h"
-#include "spi.h"
+#include "output.h"
 
 unsigned char ucControlTable[1024] __attribute__ ((aligned(1024)));
 

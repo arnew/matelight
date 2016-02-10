@@ -27,7 +27,7 @@
 #include "utils/ustdlib.h"
 #include "usb_bulk_structs.h"
 #include <string.h>
-#include "debug.h"
+#include "log.h"
 #include "proto.h"
 
 static volatile tBoolean g_bUSBConfigured = false;
@@ -57,7 +57,7 @@ unsigned long usb_rx_handler(void *pvCBData, unsigned long ulEvent, unsigned lon
 	return 0;
 }
 
-void usb_init(void) {
+void com_init(void) {
 	g_bUSBConfigured = false;
 
 	/* Enable the GPIO peripheral used for USB, and configure the USB pins. */

@@ -1,8 +1,8 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
-#define DISPLAY_WIDTH		18
-#define DISPLAY_HEIGHT		8	
+#define DISPLAY_WIDTH		30	
+#define DISPLAY_HEIGHT		12	
 #define FRAME_TIMEOUT		5000 /* ms */
 #define UDP_PORT			2323
 #define FRAMERATE			20 /* fps */

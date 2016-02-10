@@ -6,4 +6,4 @@
 #define DEBUG_PRINT while(0) ((int (*)(char *, ...))0)
 #endif
 
-void ConfigureUART(void);
+void debug_init(void);

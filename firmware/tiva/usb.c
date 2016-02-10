@@ -32,7 +32,7 @@
 #include "types.h"
 #include "config.h"
 #include "checks.h"
-#include "debug.h"
+#include "log.h"
 #include "proto.h"
 
 static volatile bool g_bUSBConfigured = false;
@@ -62,7 +62,7 @@ unsigned long RxHandler(void *pvCBData, unsigned long ulEvent, unsigned long ulM
 	return 0;
 }
 
-void usb_init(void) {
+void com_init(void) {
 	g_bUSBConfigured = false;
 
 	/* Enable the GPIO peripheral used for USB, and configure the USB pins. */

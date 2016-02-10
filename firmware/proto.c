@@ -4,37 +4,13 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
-#include "inc/hw_ints.h"
-#include "inc/hw_memmap.h"
-#include "inc/hw_types.h"
-#include "inc/hw_ssi.h"
-#include "driverlib/debug.h"
-#include "driverlib/fpu.h"
-#include "driverlib/gpio.h"
-#include "driverlib/interrupt.h"
-#include "driverlib/pin_map.h"
-#include "driverlib/sysctl.h"
-#include "driverlib/systick.h"
-#include "driverlib/timer.h"
-#include "driverlib/uart.h"
-#include "driverlib/rom.h"
-#include "driverlib/rom_map.h"
-#include "driverlib/udma.h"
-#include "driverlib/ssi.h"
-#include "usblib/usblib.h"
-#include "usblib/usb-ids.h"
-#include "usblib/device/usbdevice.h"
-#include "usblib/device/usbdbulk.h"
-#include "utils/uartstdio.h"
-#include "utils/ustdlib.h"
-#include "usb_bulk_structs.h"
 #include <string.h>
 #include "types.h"
 #include "config.h"
 #include "checks.h"
-#include "debug.h"
+#include "log.h"
 #include "proto.h"
-#include "spi.h"
+#include "output.h"
 #include "tick.h"
 #include "led.h"
 
@@ -73,7 +49,7 @@ unsigned long framebuffer_read(void *data, unsigned long len) {
 
 complete_framebuffer:
 		if(fb->crate_x > CRATES_X || fb->crate_y > CRATES_Y){
-			UARTprintf("Invalid frame index\n");
+			DEBUG_PRINT("Invalid frame index\n");
 			return len;
 		}
 
@@ -114,7 +90,7 @@ length_error:
 		}
 	}
 	fill = 0; toggle = 1;
-	UARTprintf("Invalid packet length\n");
+	DEBUG_PRINT("Invalid packet length\n");
 	return len;
 }
 

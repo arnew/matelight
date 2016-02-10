@@ -13,8 +13,8 @@
 # Physical display dimensions
 crate_width = 6
 crate_height = 4
-crates_x = 3
-crates_y = 2
+crates_x = 5
+crates_y = 3
 
 # Computed values
 display_width = crates_x * crate_width

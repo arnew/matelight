@@ -1,9 +1,9 @@
 #include "tick.h"
-#include "debug.h"
+#include "log.h"
 #include "config.h"
 #include "led.h"
 #include "proto.h"
-#include "spi.h"
+#include "output.h"
 #include <stdbool.h>
 
 volatile unsigned long g_ulSysTickCount = 0;

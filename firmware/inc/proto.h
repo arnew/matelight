@@ -10,3 +10,4 @@ extern volatile busbuffer *framebuffer_input;
 extern volatile busbuffer *framebuffer_output;
 
 extern bool swap_buffers;
+extern volatile unsigned long last_frame;

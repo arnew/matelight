@@ -39,7 +39,7 @@
 //
 //*****************************************************************************
 void
-ConfigureUART(void)
+debug_init(void)
 {
 	/* Configure UART0 pins */
 	MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
