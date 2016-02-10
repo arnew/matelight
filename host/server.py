@@ -84,6 +84,7 @@ def _fallbackiter(it, fallback):
         yield fel
 
 def defaulttexts(filename='default.lines'):
+    log("reading default lines")
     with open(filename) as f:
         return itertools.chain.from_iterable(( TextRenderer(l[:-1].replace('\\x1B', '\x1B')) for l in f.readlines() ))
 
@@ -108,7 +109,11 @@ if __name__ == '__main__':
         while True:
             for title, frame in _fallbackiter(udp_server, _fallbackiter(tcp_server, defaulttexts())):
                 if ml:
-                    ml.sendframe(frame)
+                    if ml.sendframe(frame) == 1:
+                        try:
+                            ml = matelight.Matelight(config.ml_usb_serial_match)
+                        except ValueError as e:
+                            print(e, 'ML: could not reconnect', file=sys.stderr)
                 if forwarder:
                     forwarder.sendframe(frame)
 

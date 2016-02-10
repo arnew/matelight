@@ -34,6 +34,6 @@ class Matelight:
 		rgba = len(framedata) == config.frame_size*4
                 # XXX FIXME funny constant
 		np.copyto(self.dbuf[:config.frame_size*(3+rgba)], np.frombuffer(framedata, dtype=np.uint8))
-		ml.matelight_send_frame(self.handle, self.dbuf.ctypes.data_as(POINTER(c_uint8)), c_size_t(config.crates_x),
+		return ml.matelight_send_frame(self.handle, self.dbuf.ctypes.data_as(POINTER(c_uint8)), c_size_t(config.crates_x),
 				c_size_t(config.crates_y), c_float(config.brightness), rgba)
 
