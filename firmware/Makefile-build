@@ -1,0 +1,128 @@
+
+TARGET?=stellaris
+TARGET?=tiva
+TARGET?=msp
+
+
+ifeq (${TARGET}, tiva)
+PART=TM4C123GH6PM
+ROOT=../tiva-c
+VPATH=./tiva/
+VPATH+=${ROOT}/utils
+MAKEDEFS=${ROOT}/makedefs
+IPATH=${ROOT}
+else 
+ifeq (${TARGET}, stellaris)
+PART=LM4F120H5QR
+VARIANT=cm4f
+ROOT=../stellaris
+VPATH=./stellaris/
+VPATH+=${ROOT}/utils
+MAKEDEFS=${ROOT}/makedefs
+IPATH=${ROOT}
+else 
+ifeq (${TARGET}, msp)
+PART=__MSP432P401R__
+ROOT=../mspware
+MAKEDEFS=${ROOT}/examples/MSP432P4xx/Makefile.defs
+VPATH=./msp/
+IPATH=${ROOT}
+IPATH+=${ROOT}/inc/
+IPATH+=${ROOT}/inc/CMSIS
+IPATH+=${ROOT}/driverlib/MSP432P4xx
+PREFIX=arm-none-eabi
+else 
+$(error Unknown target ${TARGET}!)
+endif
+endif
+endif
+
+IPATH+=./inc
+IPATH+=./${TARGET}
+
+include ${MAKEDEFS}
+
+CFLAGS+=--std=c11
+LD=${PREFIX}-gcc
+LDFLAGS=
+LDFLAGS+=-Wl,--gc-sections 
+#CFLAGS+=-flto
+#LDFLAGS+=-flto 
+
+
+all: ${COMPILER}
+all: ${COMPILER}/main.axf
+
+#
+# The rule to clean out all the build products.
+#
+clean:
+	@rm -rf ${COMPILER} ${wildcard *~}
+
+#
+# The rule to create the target directory.
+#
+${COMPILER}:
+	@mkdir -p ${COMPILER}
+
+${COMPILER}/main.axf: ${COMPILER}/main.o
+${COMPILER}/main.axf: ${COMPILER}/config.o
+${COMPILER}/main.axf: ${COMPILER}/debug.o
+${COMPILER}/main.axf: ${COMPILER}/spi.o
+${COMPILER}/main.axf: ${COMPILER}/led.o
+${COMPILER}/main.axf: ${COMPILER}/tick.o
+${COMPILER}/main.axf: ${COMPILER}/proto.o
+${COMPILER}/main.axf: ${COMPILER}/platform.o
+
+
+#
+# Rules for building the USB device bulk example.
+#
+ifeq (${TARGET}, tiva)
+${COMPILER}/main.axf: ${COMPILER}/usb.o
+${COMPILER}/main.axf: ${COMPILER}/usb_bulk_structs.o
+${COMPILER}/main.axf: ${TARGET}/usb_dev_bulk.ld
+${COMPILER}/main.axf: ${COMPILER}/startup_${COMPILER}.o
+${COMPILER}/main.axf: ${COMPILER}/ustdlib.o
+${COMPILER}/main.axf: ${COMPILER}/uartstdio.o
+${COMPILER}/main.axf: ${ROOT}/usblib/${COMPILER}/libusb.a
+${COMPILER}/main.axf: ${ROOT}/driverlib/${COMPILER}/libdriver.a
+SCATTERgcc_main=${TARGET}/usb_dev_bulk.ld
+ENTRY_main=ResetISR
+CFLAGSgcc=-DTARGET_IS_BLIZZARD_RA1 -DUART_BUFFERED
+else 
+ifeq (${TARGET}, stellaris)
+${COMPILER}/main.axf: ${COMPILER}/usb.o
+${COMPILER}/main.axf: ${COMPILER}/usb_bulk_structs.o
+${COMPILER}/main.axf: ${TARGET}/usb_dev_bulk.ld
+${COMPILER}/main.axf: ${COMPILER}/startup_${COMPILER}.o
+${COMPILER}/main.axf: ${COMPILER}/ustdlib.o
+${COMPILER}/main.axf: ${COMPILER}/uartstdio.o
+${COMPILER}/main.axf: ${ROOT}/usblib/${COMPILER}-cm4f/libusb-cm4f.a
+${COMPILER}/main.axf: ${ROOT}/driverlib/${COMPILER}-cm4f/libdriver-cm4f.a
+SCATTERgcc_main=${TARGET}/usb_dev_bulk.ld
+ENTRY_main=ResetISR
+CFLAGSgcc=-DTARGET_IS_BLIZZARD_RA1 -DUART_BUFFERED
+else 
+ifeq (${TARGET}, msp)
+${COMPILER}/main.axf: ${COMPILER}/uart.o
+${COMPILER}/main.axf: ${COMPILER}/msp432_startup_${COMPILER}.o
+${COMPILER}/main.axf: ${ROOT}/driverlib/MSP432P4xx/${COMPILER}/msp432p4xx_driverlib.a
+${COMPILER}/main.axf: uart_loopback_48mhz_brclk_gcc.ld
+SCATTERgcc_main=${TARGET}/uart_loopback_48mhz_brclk_gcc.ld
+ENTRY_main=ResetISR
+CFLAGSgcc=-DTARGET_IS_MSP432P4XX
+LDFLAGS+=-mfloat-abi=hard
+else 
+$(error Unknown target ${TARGET}!)
+endif
+endif
+endif
+
+#
+# Include the automatically generated dependency files.
+#
+ifneq (${MAKECMDGOALS},clean)
+-include ${wildcard ${COMPILER}/*.d} __dummy__
+endif
+
