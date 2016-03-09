@@ -27,7 +27,22 @@ Each bottle contains a LED with a WS2801 driver. Each crate contains a chain of 
 2. Poke a 12mm hole in the lid
 3. Put it in a crate
 4. Repeat from step 1
-5. Stick a loop of LEDs through the lids of the bottles
+5. Stick a loop of LEDs through the lids of the bottles like this:
+
+   .. code::
+
+           (seen from back, up↥)
+           ┏━━━━━━━━━━━━━━━━━━━┓
+      {in}→┃ ○ → ○ → ○ → ○ → ○ ┃
+           ┃                 ↓ ┃
+     {out}←┃ ○   ○ ← ○ ← ○ ← ○ ┃
+           ┃ ↑   ↓             ┃
+           ┃ ○   ○ → ○ → ○ → ○ ┃
+           ┃ ↑               ↓ ┃
+           ┃ ○ ← ○ ← ○ ← ○ ← ○ ┃
+           ┗━━━━━━━━━━━━━━━━━━━┛
+                  (down↧)
+
 6. Repeat from step 1
 7. Stack up a bunch of these crates and tie them together with zip ties and straps
 8. Connect all the wires together (mis-)using wonderful XLR connectors
@@ -91,6 +106,7 @@ Related Projects
 * `A Unity 3D backend`_
 * `Advanced Conway's Game of Life`_
 * `How to CRAP in bash because nc is for noobs`_
+* `Noisebridge's ripoff matelight :D`_
 
 As featured on…
 ---------------
@@ -118,4 +134,5 @@ As featured on…
 .. _`A Unity 3D backend`: http://firepunchd.tumblr.com/post/123631124063/every-pixel-is-sacred-on-a-40x16-display-you-have
 .. _`Advanced Conway's Game of Life`: https://github.com/vileda/golGL
 .. _`How to CRAP in bash because nc is for noobs`: https://gist.github.com/anonymous/0299b536dabd8ee59529
+.. _`Noisebridge's ripoff matelight :D`: http://blog.noisebridge.net/post/139304835544/i-walked-into-noisebridge-yesterday-and-was
 
