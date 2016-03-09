@@ -99,7 +99,8 @@ typedef struct{
 } crate_frame_t;
 
 int matelight_send_frame(matelight_handle *ml, void *buf, size_t w, size_t h, float brightness, int alpha){
-	const float cc[DISPLAY_HEIGHT/CRATE_HEIGHT][DISPLAY_WIDTH/CRATE_WIDTH][3] = COLOR_TABLE;
+	const float cc_1w[DISPLAY_HEIGHT/CRATE_HEIGHT][DISPLAY_WIDTH/CRATE_WIDTH][3] = CC_1W;
+	const float cc_p5w[DISPLAY_HEIGHT/CRATE_HEIGHT][DISPLAY_WIDTH/CRATE_WIDTH][3] = CC_p5W;
 //	fprintf(stderr, "\nFRAME START\n");
 	for(size_t cy=0; cy<h; cy++){
 //		fprintf(stderr, "##### NEXT ROW\n");
@@ -122,12 +123,10 @@ int matelight_send_frame(matelight_handle *ml, void *buf, size_t w, size_t h, fl
 					rgb_t *dst = frame.buf+dpos;
 					/* Gamma correction */
 #define GAMMA_APPLY(c) ((uint8_t)roundf(powf((c/255.0F), GAMMA) * brightness * 255))
-#define cc_APPLY(c,i) ((uint8_t)roundf((c/255.0F) * cc[cy][cx][i] * 255))
 					dst->r = cc_APPLY(GAMMA_APPLY(src->r),0);
 					dst->g = cc_APPLY(GAMMA_APPLY(src->g),1);
 					dst->b = cc_APPLY(GAMMA_APPLY(src->b),2);
 //					fprintf(stderr, "%c", ((dst->r > 1) ? '#' : '.'));
-#undef cc_APPLY
 #undef GAMMA_APPLY
 				}
 //				fprintf(stderr, "\n");
